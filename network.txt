@@ -1,0 +1,83 @@
+public class HttpManager {
+    private HttpURLConnection connection;
+    private InputStream inputStream;
+    private InputStreamReader inputStreamReader;
+    private BufferedReader bufferedReader;
+    private final String url;
+
+    public HttpManager(String url){
+        this.url = url;
+    }
+
+    public String call() {
+        try {
+            return getWebsiteString();
+        } catch (IOException e) {
+            throw new RuntimeException(e);
+        }
+        finally {
+            closeConnections();
+        }
+    }
+
+    private void closeConnections() {
+        try {
+            bufferedReader.close();
+        } catch (IOException e) {
+            throw new RuntimeException(e);
+        }
+
+        try {
+            inputStreamReader.close();
+        } catch (IOException e) {
+            throw new RuntimeException(e);
+        }
+
+        try {
+            inputStream.close();
+        } catch (IOException e) {
+            throw new RuntimeException(e);
+        }
+
+        connection.disconnect();
+    }
+
+    @NonNull
+    private String getWebsiteString() throws IOException {
+        connection = (HttpURLConnection) new URL(url).openConnection();
+        inputStream = connection.getInputStream();
+        inputStreamReader = new InputStreamReader(inputStream);
+        bufferedReader = new BufferedReader(inputStreamReader);
+
+        StringBuilder result = new StringBuilder();
+        String line;
+
+        while ((line = bufferedReader.readLine()) != null) {
+            result.append(line);
+        }
+
+        return result.toString();
+    }
+}
+
+private ExecutorService executorService = Executors.newCachedThreadPool();
+private Handler handler = new Handler(Looper.getMainLooper());
+
+btn_get_web_page = findViewById(R.id.btn_get_web_page);
+btn_get_web_page.setOnClickListener(v ->{
+
+	executorService.execute(() -> {
+		HttpManager manager = new HttpManager(EXPENSE_URL);
+		String result = manager.call();
+
+		handler.post(getMainThreadOperation(result));
+	});
+});
+
+private Runnable getMainThreadOperation(String result){
+	return () -> {
+		Toast.makeText(getApplicationContext(), result, Toast.LENGTH_SHORT).show();
+	};
+}
+
+<uses-permission android:name="android.permission.INTERNET"/>

@@ -1,0 +1,103 @@
+layout -> new layout -> lv_row
+
+<?xml version="1.0" encoding="utf-8"?>
+<androidx.constraintlayout.widget.ConstraintLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    xmlns:tools="http://schemas.android.com/tools"
+    android:layout_width="match_parent"
+    android:layout_height="wrap_content">
+
+    <TextView
+        android:id="@+id/row_tv_date"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:text="Date"
+        app:layout_constraintEnd_toEndOf="parent"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintTop_toTopOf="parent" />
+
+    <TextView
+        android:id="@+id/row_tv_description"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_marginStart="10dp"
+        android:layout_marginTop="10dp"
+        android:layout_marginEnd="10dp"
+        android:text="@string/description"
+        app:layout_constraintEnd_toEndOf="parent"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintTop_toBottomOf="@+id/row_tv_date" />
+
+    <TextView
+        android:id="@+id/row_tv_amount"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_marginStart="10dp"
+        android:layout_marginTop="10dp"
+        android:layout_marginEnd="10dp"
+        android:text="amount"
+        app:layout_constraintEnd_toEndOf="parent"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintTop_toBottomOf="@+id/row_tv_description" />
+
+    <TextView
+        android:id="@+id/row_tv_category"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_marginStart="10dp"
+        android:layout_marginTop="10dp"
+        android:layout_marginEnd="10dp"
+        android:text="@string/category"
+        app:layout_constraintEnd_toEndOf="parent"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintTop_toBottomOf="@+id/row_tv_amount" />
+</androidx.constraintlayout.widget.ConstraintLayout>
+
+public class ExpenseAdapter
+        extends ArrayAdapter<Expense> {
+
+    private Context context;
+    private int resource;
+    private List<Expense> expenses;
+    private LayoutInflater inflater;
+
+    public ExpenseAdapter(
+            @NonNull Context context,
+            int resource,
+            @NonNull List<Expense> objects,
+            LayoutInflater inflater) {
+        super(context, resource, objects);
+        this.context = context;
+        this.resource = resource;
+        this.expenses = objects;
+        this.inflater = inflater;
+    }
+
+    @NonNull
+    @Override
+    public View getView(int position,
+                        @Nullable View convertView,
+                        @NonNull ViewGroup parent) {
+        View view = inflater.inflate(resource, parent, false);
+
+        Expense expense = expenses.get(position);
+
+        TextView tvDate = view.findViewById(R.id.row_tv_date);
+        tvDate.setText(DateConverter.fromDate(expense.getDate()));
+        TextView tvCategory = view.findViewById(R.id.row_tv_category);
+        tvCategory.setText(expense.getCategory());
+        TextView tvDescription = view.findViewById(R.id.row_tv_description);
+        tvDescription.setText(expense.getDescription());
+        TextView tvAmount = view.findViewById(R.id.row_tv_amount);
+        tvAmount.setText(String.valueOf(expense.getAmount()));
+
+        return view;
+    }
+}
+
+ ExpenseAdapter expenseAdapter = new ExpenseAdapter(
+                    getContext().getApplicationContext(),
+                    R.layout.lv_row,
+                    expenses,
+                    getLayoutInflater()
+            );

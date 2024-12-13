@@ -1,0 +1,192 @@
+package com.example.exercitiu;
+
+import android.content.Intent;
+import android.os.Bundle;
+import android.os.Handler;
+import android.os.Looper;
+import android.util.Log;
+import android.view.MenuItem;
+import android.view.View;
+import android.view.Menu;
+import android.widget.Toast;
+
+import com.example.exercitiu.defines.Expense;
+import com.example.exercitiu.fragments.HomeFragment;
+import com.example.exercitiu.utils.AsyncTaskRunner;
+import com.example.exercitiu.utils.Callback;
+import com.example.exercitiu.utils.HttpManager;
+import com.example.exercitiu.utils.JsonParser;
+import com.google.android.material.floatingactionbutton.FloatingActionButton;
+import com.google.android.material.snackbar.Snackbar;
+import com.google.android.material.navigation.NavigationView;
+
+import androidx.activity.result.ActivityResult;
+import androidx.activity.result.ActivityResultCallback;
+import androidx.activity.result.ActivityResultLauncher;
+import androidx.activity.result.contract.ActivityResultContracts;
+import androidx.annotation.NonNull;
+import androidx.appcompat.app.ActionBarDrawerToggle;
+import androidx.appcompat.widget.Toolbar;
+import androidx.core.view.GravityCompat;
+import androidx.fragment.app.Fragment;
+import androidx.navigation.NavController;
+import androidx.navigation.Navigation;
+import androidx.navigation.ui.AppBarConfiguration;
+import androidx.navigation.ui.NavigationUI;
+import androidx.drawerlayout.widget.DrawerLayout;
+import androidx.appcompat.app.AppCompatActivity;
+
+import com.example.exercitiu.databinding.ActivityMainBinding;
+
+import java.util.ArrayList;
+import java.util.List;
+import java.util.concurrent.Callable;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import java.util.jar.JarEntry;
+
+public class MainActivity extends AppCompatActivity {
+
+    private DrawerLayout drawerLayout;
+    private NavigationView navView;
+    private Fragment currentFragment;
+    private final List<Expense> expenses = new ArrayList<>();
+    private FloatingActionButton fabAdd;
+    private ActivityResultLauncher<Intent> launcher;
+    private static final String EXPENSE_URL = "https://api.npoint.io/d7ff2d45127e4917a729";
+    private ExecutorService executorService = Executors.newCachedThreadPool();
+    private Handler handler = new Handler(Looper.getMainLooper());
+
+    @Override
+    protected void onCreate(Bundle savedInstanceState) {
+        super.onCreate(savedInstanceState);
+        setContentView(R.layout.activity_main);
+
+        Toolbar toolbar = findViewById(R.id.toolbar);
+        setSupportActionBar(toolbar);
+
+        drawerLayout = findViewById(R.id.drawer_layout);
+        ActionBarDrawerToggle toggle = new
+                ActionBarDrawerToggle(this,
+                drawerLayout,
+                toolbar,
+                R.string.navigation_drawer_open,
+                R.string.navigation_drawer_close);
+        toggle.syncState();
+
+        // FOR LEFT MENU
+        navView = findViewById(R.id.nav_view);
+        navView.setNavigationItemSelectedListener(
+                getItemSelected());
+
+        if (savedInstanceState == null) {
+            currentFragment = HomeFragment.getInstance(expenses);
+            openFragment();
+            navView.setCheckedItem(R.id.nav_home);
+        }
+
+        launcher = registerForActivityResult(new ActivityResultContracts.StartActivityForResult(),
+                getAddExpenseCallback());
+
+        fabAdd = findViewById(R.id.fab_add_expense);
+        fabAdd.setOnClickListener(getAddEvent());
+    }
+
+    private ActivityResultCallback<ActivityResult> getAddExpenseCallback() {
+        return result -> {
+            if (result.getResultCode() == RESULT_OK && result.getData() != null) {
+                Expense expense = result.getData().getParcelableExtra(AddExpense.EXPENSE_KEY);
+                if (expense == null) {
+                    return;
+                }
+                int position =  result.getData().getIntExtra(AddExpense.EXPENSE_POSITION_KEY, -1);
+                if(position == -1) {
+                    expenses.add(expense);
+                }
+                else {
+                    expenses.set(position, expense);
+                }
+                if(currentFragment instanceof HomeFragment){
+                    ((HomeFragment)currentFragment).notifyAdapter();
+                }
+                Log.i("MainActivity", "expenses = " + expenses);
+            }
+        };
+    }
+
+    private View.OnClickListener getAddEvent() {
+        return v -> {
+            Intent intent = new Intent(getApplicationContext(), AddExpense.class);
+            launcher.launch(intent);
+        };
+    }
+
+    private NavigationView.OnNavigationItemSelectedListener getItemSelected() {
+        return item -> {
+            if (item.getItemId() == R.id.nav_home) {
+                Toast.makeText(getApplicationContext(),
+                        "HOME CLICKED",
+                        Toast.LENGTH_SHORT).show();
+                currentFragment = HomeFragment.getInstance(expenses);
+            }
+            drawerLayout.closeDrawer(GravityCompat.START);
+            openFragment();
+            return true;
+        };
+    }
+
+    private void openFragment() {
+        getSupportFragmentManager()
+                .beginTransaction()
+                .replace(R.id.main_fl_container, currentFragment)
+                .commit();
+    }
+
+    @Override
+    public boolean onCreateOptionsMenu(Menu menu) {
+        // Inflate the menu; this adds items to the action bar if it is present.
+        getMenuInflater().inflate(R.menu.main, menu);
+        return true;
+    }
+
+    private final AsyncTaskRunner asyncTaskRunner = new AsyncTaskRunner();
+    @Override
+    public boolean onOptionsItemSelected(@NonNull MenuItem item) {
+        if(item.getItemId() == R.id.action_settings){
+            Callable<String> httpManager = new HttpManager(EXPENSE_URL);
+            Callback<String> callbackHttpManager = getMainThreadOperation();
+            asyncTaskRunner.executeAsync(httpManager, result ->{
+                Toast.makeText(getApplicationContext(), result, Toast.LENGTH_SHORT).show();
+                expenses.addAll(JsonParser.fromJSON(result));
+
+                if(currentFragment instanceof HomeFragment){
+                    ((HomeFragment)currentFragment).notifyAdapter();
+                }
+            });
+        }
+        return super.onOptionsItemSelected(item);
+    }
+
+    private Callback<String> getMainThreadOperation(){
+        return result -> {
+            Toast.makeText(getApplicationContext(), result, Toast.LENGTH_SHORT).show();
+        };
+    }
+
+    public void removeExpense(int position) {
+        Expense removedExpense = expenses.remove(position);
+        Toast.makeText(getApplicationContext(),
+                removedExpense.toString(),
+                Toast.LENGTH_SHORT).show();
+        if(currentFragment instanceof HomeFragment){
+            ((HomeFragment)currentFragment).notifyAdapter();
+        }
+    }
+
+        public void launchEdit(int position) {
+            Intent intent = new Intent(getApplicationContext(), AddExpense.class);
+            intent.putExtra(AddExpense.EXPENSE_KEY, expenses.get(position));
+            intent.putExtra(AddExpense.EXPENSE_POSITION_KEY, position);
+            launcher.launch(intent);
+        }
+}

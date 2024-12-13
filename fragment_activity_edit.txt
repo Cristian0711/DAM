@@ -1,0 +1,163 @@
+// MainActivity
+private ActivityResultCallback<ActivityResult> getAddExpenseCallback() {
+	return result -> {
+		if (result.getResultCode() == RESULT_OK && result.getData() != null) {
+			Expense expense = result.getData().getParcelableExtra(AddExpense.EXPENSE_KEY);
+			if (expense == null) {
+				return;
+			}
+			int position =  result.getData().getIntExtra(AddExpense.EXPENSE_POSITION_KEY, -1);
+			if(position == -1) {
+				expenses.add(expense);
+			}
+			else {
+				expenses.set(position, expense);
+			}
+			if(currentFragment instanceof HomeFragment){
+				((HomeFragment)currentFragment).notifyAdapter();
+			}
+			Log.i("MainActivity", "expenses = " + expenses);
+		}
+};
+}
+
+public void removeExpense(int position) {
+Expense removedExpense = expenses.remove(position);
+Toast.makeText(getApplicationContext(),
+		removedExpense.toString(),
+		Toast.LENGTH_SHORT).show();
+if(currentFragment instanceof HomeFragment){
+	((HomeFragment)currentFragment).notifyAdapter();
+}
+}
+
+public void launchEdit(int position) {
+	Intent intent = new Intent(getApplicationContext(), AddExpense.class);
+	intent.putExtra(AddExpense.EXPENSE_KEY, expenses.get(position));
+	intent.putExtra(AddExpense.EXPENSE_POSITION_KEY, position);
+	launcher.launch(intent);
+}
+
+//Fragment
+lvExpenses.setAdapter(expenseAdapter);
+lvExpenses.setOnItemClickListener(getItemClickListener());
+
+private AdapterView.OnItemLongClickListener getItemLongClickListener() {
+	return (parent, view, position, id) -> {
+		if (getActivity() instanceof MainActivity) {
+			((MainActivity) getActivity()).removeExpense(position);
+		}
+		return true;
+	};
+}
+
+private AdapterView.OnItemClickListener getItemClickListener() {
+	return (parent, view, position, id) -> {
+		if (getActivity() instanceof MainActivity) {
+			((MainActivity) getActivity()).launchEdit(position);
+		}
+	};
+}
+
+public class AddExpense extends AppCompatActivity {
+    public static final String EXPENSE_KEY = "expense_key";
+    public static final String EXPENSE_POSITION_KEY = "expense_position_key";
+
+    private TextInputEditText tietDate;
+    private TextInputEditText tietAmount;
+    private TextInputEditText tietCategory;
+    private TextInputEditText tietDescription;
+    private Button btnSave;
+    private Intent intent;
+    private Expense expense;
+    private int position;
+
+    @Override
+    protected void onCreate(Bundle savedInstanceState) {
+        super.onCreate(savedInstanceState);
+        setContentView(R.layout.activity_add_expense);
+
+        initialiseComponents();
+    }
+
+    private void loadData() {
+        tietDescription.setText(expense.getDescription());
+        tietAmount.setText(String.valueOf(expense.getAmount()));
+        tietDate.setText(DateConverter.fromDate(expense.getDate()));
+        tietCategory.setText(expense.getCategory());
+    }
+
+
+    private void buildFromView() {
+        double amount = Double.parseDouble(tietAmount.getText().toString());
+        String category = tietCategory.getText().toString();
+        String description = tietDescription.getText().toString();
+        Date date = DateConverter.toDate(tietDate.getText().toString());
+        if (expense == null) {
+            expense = new Expense(date, amount, category, description);
+            return;
+        }
+        expense.setAmount(amount);
+        expense.setCategory(category);
+        expense.setDescription(description);
+        expense.setDate(date);
+    }
+
+    private boolean isValid() {
+        if (tietDate.getText() == null
+                || DateConverter.toDate(tietDate.getText().toString()) == null) {
+            Toast.makeText(getApplicationContext(),
+                    "invalid date",
+                    Toast.LENGTH_LONG).show();
+            return false;
+        }
+        if (tietAmount.getText() == null ||
+                tietAmount.getText().toString().trim().isEmpty()
+                || Double.parseDouble(tietAmount.getText().toString()) < 0) {
+            Toast.makeText(getApplicationContext(),
+                    "invalid amount",
+                    Toast.LENGTH_LONG).show();
+            return false;
+        }
+        return true;
+    }
+
+    private void initialiseComponents() {
+        tietDate = findViewById(R.id.tiet_add_date);
+        tietAmount = findViewById(R.id.tiet_add_amount);
+        tietDescription = findViewById(R.id.tiet_add_description);
+        tietCategory = findViewById(R.id.tiet_add_category);
+        btnSave = findViewById(R.id.act_add_button_save);
+
+        btnSave.setOnClickListener(v -> {
+            if (isValid()) {
+                buildFromView();
+                Intent resultIntent = new Intent();
+                resultIntent.putExtra(EXPENSE_KEY, expense);
+                if(position != -1) {
+                    resultIntent.putExtra(EXPENSE_POSITION_KEY, position);
+                }
+                setResult(RESULT_OK, resultIntent);
+                finish();
+            }
+        });
+
+        position = -1;
+        intent = getIntent();
+        if (intent.hasExtra(EXPENSE_KEY)) {
+            expense = intent.getParcelableExtra(EXPENSE_KEY);
+            position = intent.getIntExtra(EXPENSE_POSITION_KEY, -1);
+            Toast.makeText(getApplicationContext(), String.valueOf(position), Toast.LENGTH_SHORT).show();
+            loadData();
+        }
+    }
+}
+
+// LoadData -> Spinner
+SpinnerAdapter adapter = spnCategory.getAdapter();
+for (int i = 0; i < adapter.getCount(); i++) {
+	if (adapter.getItem(i).equals(expense.getCategory())) {
+		spnCategory.setSelection(i);
+		break;
+	}
+}
