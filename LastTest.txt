@@ -1,0 +1,184 @@
+package com.example.testdam;
+
+import android.os.Bundle;
+import android.util.Log;
+import android.widget.ArrayAdapter;
+import android.widget.Button;
+import android.widget.ListView;
+import android.widget.RadioGroup;
+import android.widget.Toast;
+import android.widget.ToggleButton;
+
+import androidx.activity.EdgeToEdge;
+import androidx.appcompat.app.AppCompatActivity;
+import androidx.core.graphics.Insets;
+import androidx.core.view.ViewCompat;
+import androidx.core.view.WindowInsetsCompat;
+
+import com.example.testdam.database.ExpenseDBService;
+import com.example.testdam.defines.Expense;
+import com.example.testdam.network.AsyncTaskRunner;
+import com.example.testdam.network.HttpManager;
+import com.example.testdam.utils.JsonParser;
+import com.google.android.material.textfield.TextInputEditText;
+
+import java.util.ArrayList;
+import java.util.List;
+import java.util.function.BiPredicate;
+import java.util.stream.Collectors;
+
+public class MainActivity extends AppCompatActivity {
+    public static final String URL = "https://api.npoint.io/3abbf16568fe55b62786";
+    // MISC
+    AsyncTaskRunner asyncTaskRunner = new AsyncTaskRunner();
+    ExpenseDBService expenseDBService;
+
+    // UI
+    Button btn_salvare;
+    RadioGroup rg_filter;
+    TextInputEditText tiet_value;
+    Button btn_download;
+    ListView lv_expenses;
+    ToggleButton tb_delete;
+
+    // DATA
+    List<Expense> downloaded_list = new ArrayList<>();
+    List<Expense> expenses = new ArrayList<>();
+
+    @Override
+    protected void onCreate(Bundle savedInstanceState) {
+        super.onCreate(savedInstanceState);
+        EdgeToEdge.enable(this);
+        setContentView(R.layout.activity_main);
+        ViewCompat.setOnApplyWindowInsetsListener(findViewById(R.id.main), (v, insets) -> {
+            Insets systemBars = insets.getInsets(WindowInsetsCompat.Type.systemBars());
+            v.setPadding(systemBars.left, systemBars.top, systemBars.right, systemBars.bottom);
+            return insets;
+        });
+
+        initComponents();
+        initListeners();
+    }
+
+    private void initComponents() {
+        btn_salvare = findViewById(R.id.btn_salvare);
+        rg_filter = findViewById(R.id.rg_filter);
+        tiet_value = findViewById(R.id.tiet_filter);
+        btn_download = findViewById(R.id.btn_download);
+        lv_expenses = findViewById(R.id.lv_expenses);
+        tb_delete = findViewById(R.id.tb_delete);
+
+        expenseDBService = new ExpenseDBService(getApplicationContext());
+
+        ArrayAdapter<Expense> expenseAdapter = new ArrayAdapter<>(this, android.R.layout.simple_list_item_1,
+                expenses);
+
+        expenseDBService.getAll(result -> {
+            expenses.clear();
+            expenses.addAll(result);
+
+            lv_expenses.setAdapter(expenseAdapter);
+        });
+    }
+
+    private void initListeners() {
+        btn_download.setOnClickListener(l -> {
+            asyncTaskRunner.executeAsync(new HttpManager(URL), result -> {
+                Log.d("MainDebug", result);
+                downloaded_list = JsonParser.parse(result);
+            });
+        });
+
+        btn_salvare.setOnClickListener(l -> {
+            if(downloaded_list == null || tiet_value.getText() == null || tiet_value.getText().toString().isBlank()){
+                return;
+            }
+
+            String criteriu = "";
+            int value = Integer.parseInt(tiet_value.getText().toString());
+            int selected_id = rg_filter.getCheckedRadioButtonId();
+
+            if(selected_id == R.id.rb_button_equal) {
+                criteriu = "equal";
+            } else if(selected_id == R.id.rb_button_greater) {
+                criteriu = "greater";
+            }else if(selected_id == R.id.rb_button_less) {
+                criteriu = "less";
+            }
+
+            if(criteriu.isBlank()){
+                return;
+            }
+
+            insertInDatabase(criteriu, value);
+        });
+    }
+
+    private void notifyAdapter(){
+        ArrayAdapter<Expense> adapter = (ArrayAdapter<Expense>) lv_expenses.getAdapter();
+        adapter.notifyDataSetChanged();
+    }
+
+    private void insertInDatabase(String criteriu, int value) {
+        if(tb_delete.getText() != null){
+            if(tb_delete.getText().toString().equals("ON")){
+                expenses.forEach(expense -> {
+                    expenseDBService.delete(expense, result -> {
+                        if(result == null){
+                            return;
+                        }
+
+                        expenses.remove(expense);
+                        notifyAdapter();
+                    });
+                });
+            } else {
+
+            }
+        }
+
+        List<Expense> filtered = downloaded_list.stream().filter(m -> !expenses.contains(m))
+                .collect(Collectors.toList());
+
+        if (criteriu.equals("equal")) {
+            Toast.makeText(getApplicationContext(), "EQUAL!", Toast.LENGTH_SHORT).show();
+            filtered.stream().filter(m -> m.getPrice() == value).forEach(current_item -> {
+                expenseDBService.insert(current_item, result -> {
+                    if (result == null) {
+                        return;
+                    }
+
+                    expenses.add(current_item);
+                    notifyAdapter();
+                    ;
+                });
+            });
+        } else if (criteriu.equals("less")) {
+            Toast.makeText(getApplicationContext(), "EQUAL!", Toast.LENGTH_SHORT).show();
+            filtered.stream().filter(m -> m.getPrice() < value).forEach(current_item -> {
+                expenseDBService.insert(current_item, result -> {
+                    if (result == null) {
+                        return;
+                    }
+
+                    expenses.add(current_item);
+                    notifyAdapter();
+                    ;
+                });
+            });
+        } else if (criteriu.equals("greater")) {
+            Toast.makeText(getApplicationContext(), "EQUAL!", Toast.LENGTH_SHORT).show();
+            filtered.stream().filter(m -> m.getPrice() > value).forEach(current_item -> {
+                expenseDBService.insert(current_item, result -> {
+                    if (result == null) {
+                        return;
+                    }
+
+                    expenses.add(current_item);
+                    notifyAdapter();
+                    ;
+                });
+            });
+        }
+    }
+}
