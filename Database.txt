@@ -105,3 +105,102 @@ public class ExpenseDBService {
         asyncTaskRunner.executeAsync(callable, callback);
     }
 }
+
+// Class Example
+package com.example.simularedamtest3.defines;
+
+import android.util.Log;
+
+import androidx.room.Entity;
+import androidx.room.Ignore;
+import androidx.room.PrimaryKey;
+
+import java.io.Serializable;
+import java.util.Date;
+import java.util.Objects;
+
+@Entity(tableName = "jurnale")
+public class Jurnal implements Serializable {
+    @PrimaryKey(autoGenerate = true)
+    private long id;
+    private String destination;
+    private int expenses;
+    private Date date;
+
+    public Jurnal(long id, String destination, int expenses, Date date) {
+        this.id = id;
+        this.destination = destination;
+        this.expenses = expenses;
+        this.date = date;
+    }
+
+    @Ignore
+    public Jurnal(String destination, int expenses, Date date) {
+        this.destination = destination;
+        this.expenses = expenses;
+        this.date = date;
+
+        Log.e("MainDebug", "Created: " + toString());
+    }
+
+    @Override
+    protected void finalize() throws Throwable {
+        Log.e("MainDebug", "Deleted: " + toString());
+        super.finalize();
+    }
+
+    public long getId() {
+        return id;
+    }
+
+    public void setId(long id) {
+        this.id = id;
+    }
+
+    public String getDestination() {
+        return destination;
+    }
+
+    public void setDestination(String destination) {
+        this.destination = destination;
+    }
+
+    public int getExpenses() {
+        return expenses;
+    }
+
+    public void setExpenses(int expenses) {
+        this.expenses = expenses;
+    }
+
+    public Date getDate() {
+        return date;
+    }
+
+    public void setDate(Date date) {
+        this.date = date;
+    }
+
+    @Override
+    public boolean equals(Object o) {
+        if (this == o) return true;
+        if (o == null || getClass() != o.getClass()) return false;
+        Jurnal jurnal = (Jurnal) o;
+        return expenses == jurnal.expenses && Objects.equals(destination, jurnal.destination) && Objects.equals(date, jurnal.date);
+    }
+
+    @Override
+    public int hashCode() {
+        return Objects.hash(destination, expenses, date);
+    }
+
+    @Override
+    public String toString() {
+        return "Jurnal{" +
+                "destination='" + destination + '\'' +
+                ", expenses=" + expenses +
+                ", date=" + date +
+                '}';
+    }
+}
+
