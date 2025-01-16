@@ -1,0 +1,107 @@
+// Manager
+package com.example.testdam.database;
+
+import android.content.Context;
+
+import androidx.room.Database;
+import androidx.room.Room;
+import androidx.room.RoomDatabase;
+import androidx.room.TypeConverters;
+
+import com.example.testdam.defines.Expense;
+import com.example.testdam.utils.DateConverter;
+
+@Database(entities = {Expense.class}, version = 1, exportSchema = false)
+@TypeConverters({DateConverter.class})
+public abstract class DatabaseManager extends RoomDatabase {
+    static DatabaseManager databaseManager;
+
+    // TODO SINGLETON
+    public static DatabaseManager getInstance(Context context){
+        if(databaseManager != null) {
+            return databaseManager;
+        }
+
+        databaseManager = Room.databaseBuilder(context, DatabaseManager.class, "expense_db")
+                .fallbackToDestructiveMigration()
+                .build();
+
+        return databaseManager;
+    }
+
+    public abstract ExpenseDao expenseDao();
+}
+
+// DAO
+package com.example.testdam.database;
+
+import androidx.room.Dao;
+import androidx.room.Delete;
+import androidx.room.Insert;
+import androidx.room.Query;
+
+import com.example.testdam.defines.Expense;
+
+import java.util.List;
+
+@Dao
+public interface ExpenseDao {
+    @Query("SELECT * FROM expenses")
+    List<Expense> getAll();
+
+    @Insert
+    long insert(Expense expense);
+
+    @Delete
+    int delete(Expense expense);
+}
+
+// Service
+package com.example.testdam.database;
+
+import android.content.Context;
+
+import com.example.testdam.defines.Expense;
+import com.example.testdam.network.AsyncTaskRunner;
+import com.example.testdam.network.Callback;
+
+import java.util.List;
+import java.util.concurrent.Callable;
+
+public class ExpenseDBService {
+    ExpenseDao expenseDao;
+    AsyncTaskRunner asyncTaskRunner = new AsyncTaskRunner();
+
+    public ExpenseDBService(Context context) {
+         expenseDao = DatabaseManager.getInstance(context).expenseDao();
+    }
+
+    public void getAll(Callback<List<Expense>> callback){
+        asyncTaskRunner.executeAsync(expenseDao::getAll, callback);
+    }
+
+    public void insert(Expense expense, Callback<Expense> callback){
+        Callable<Expense> callable = () -> {
+            if(expense.getId() > 0){
+                return null;
+            }
+
+            long id = expenseDao.insert(expense);
+            if(id <= 0){
+                return null;
+            }
+
+            expense.setId(id);
+            return expense;
+        };
+
+        asyncTaskRunner.executeAsync(callable, callback);
+    }
+
+    public void delete(Expense expense, Callback<Expense> callback) {
+        Callable<Expense> callable = () -> {
+            return expenseDao.delete(expense) == 1 ? expense : null;
+        };
+        asyncTaskRunner.executeAsync(callable, callback);
+    }
+}
